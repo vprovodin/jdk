@@ -15,21 +15,12 @@
  */
 
 import javax.imageio.ImageIO;
-import javax.swing.JComponent;
-import javax.swing.JFrame;
-import javax.swing.SwingUtilities;
-import javax.swing.WindowConstants;
-import java.awt.AWTException;
+import java.awt.Color;
 import java.awt.Font;
 import java.awt.FontFormatException;
 import java.awt.Graphics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
-import java.awt.Point;
-import java.awt.Rectangle;
-import java.awt.Robot;
-import java.awt.event.WindowEvent;
-import java.awt.event.WindowFocusListener;
 import java.awt.font.GlyphVector;
 import java.awt.image.BufferedImage;
 import java.io.File;
@@ -46,23 +37,16 @@ import java.io.IOException;
  * sequence being used is not standard, it is expected two identical letters 'a' will be rendered in both cases.
  *
  */
-public class Font467 extends JFrame implements WindowFocusListener {
+public class Font467 {
 
     // A font supporting Unicode variation selectors is required
     private static Font FONT;
 
-    private static Robot robot;
     private static String SCREENSHOT_FILE_NAME1, SCREENSHOT_FILE_NAME2;
-    private static Font467 frame = new Font467();
-    private static Point point1 = new Point(80, 50);
-    private static Point point2 = new Point(80, 100);
-
-    private static final Object testCompleted = new Object();
 
     public static void main(String[] args) throws Exception {
 
         String fontFileName = Font467.class.getResource("fonts/DejaVuSans.ttf").getFile();
-        robot = new Robot();
         if (args.length > 0)
             SCREENSHOT_FILE_NAME1 = args[0];
         if (args.length > 1)
@@ -75,83 +59,44 @@ public class Font467 extends JFrame implements WindowFocusListener {
         } catch (IOException | FontFormatException e) {
             e.printStackTrace();
         }
+
         FONT = new Font("DejaVu Sans", Font.PLAIN, 12);
-        synchronized (testCompleted) {
+        BufferedImage bufferedImage1 = drawImage("a");
+        BufferedImage bufferedImage2 = drawImage("a\ufe00");
 
-            SwingUtilities.invokeLater(() -> {
-                frame.setDefaultCloseOperation(WindowConstants.DISPOSE_ON_CLOSE);
-                MyComponent myComponent =new MyComponent();
-                frame.add(myComponent);
-                frame.setSize(200, 200);
-                frame.setLocationRelativeTo(null);
-                frame.addWindowFocusListener(frame);
-                frame.setVisible(true);
-            });
-            testCompleted.wait();
-            frame.setVisible(false);
-            frame.dispose();
-        }
-    }
-
-    @Override
-    public void windowGainedFocus(WindowEvent e) {
-        robot.delay(100);
-        Rectangle rect1 = new Rectangle(frame.getLocation().x + point1.x, frame.getLocation().y + point1.y,
-                20, 50);
-        Rectangle rect2 = new Rectangle(frame.getLocation().x + point2.x, frame.getLocation().y + point2.y,
-                20, 50);
-        System.out.println("Taking screen shots");
-        try {
-            BufferedImage capture1 = new Robot().createScreenCapture(rect1);
-            BufferedImage capture2 = new Robot().createScreenCapture(rect2);
-
+        if (!imagesAreEqual(bufferedImage1, bufferedImage2)) {
             try {
-                ImageIO.write(capture1, "png", new File(System.getProperty("test.classes")
+                ImageIO.write(bufferedImage1, "png", new File(System.getProperty("test.classes")
                         + File.separator + SCREENSHOT_FILE_NAME1));
-                ImageIO.write(capture2, "png", new File(System.getProperty("test.classes")
+                ImageIO.write(bufferedImage2, "png", new File(System.getProperty("test.classes")
                         + File.separator + SCREENSHOT_FILE_NAME2));
             } catch (IOException | NullPointerException ex) {
                 ex.printStackTrace();
             }
-
-            if (!imagesAreEqual(capture1, capture2)) {
-                throw new RuntimeException("Expected: screenshots must be equal");
-            }
-        } catch (AWTException ex) {
-            ex.printStackTrace();
-        } finally {
-
-            frame.setVisible(false);
-            frame.dispose();
-
-            synchronized (testCompleted) {
-                testCompleted.notifyAll();
-            }
+            throw new RuntimeException("Expected: screenshots must be equal");
         }
     }
 
-    @Override
-    public void windowLostFocus(WindowEvent e) {
-    }
+    private static BufferedImage drawImage(String text) {
+        int HEIGHT = 50;
+        int WIDTH = 20;
 
-    private static class MyComponent extends JComponent {
-        @Override
-        protected void paintComponent(Graphics g) {
-            Graphics2D g2d = (Graphics2D) g;
-            String text = "a";
-            GlyphVector gv = FONT.layoutGlyphVector(g2d.getFontRenderContext(), text.toCharArray(), 0,
-                    text.length(), Font.LAYOUT_LEFT_TO_RIGHT);
-            g2d.drawGlyphVector(gv, point1.x, point1.y);
+        BufferedImage bufferedImage = new BufferedImage(WIDTH, HEIGHT, BufferedImage.TYPE_INT_ARGB);
+        Graphics g = bufferedImage.createGraphics();
+        Graphics2D g2d = (Graphics2D) g;
 
-            String text2 = "a\ufe00";
-            GlyphVector gv2 = FONT.layoutGlyphVector(g2d.getFontRenderContext(), text2.toCharArray(), 0,
-                    text2.length(), Font.LAYOUT_LEFT_TO_RIGHT);
-            g2d.drawGlyphVector(gv2, point2.x, point2.y);
-        }
+        g2d.setColor(Color.white);
+        g2d.fillRect(0, 0, WIDTH, HEIGHT);
+
+        g2d.setFont(FONT);
+        g2d.setColor(Color.black);
+        GlyphVector gv = FONT.layoutGlyphVector(g2d.getFontRenderContext(), text.toCharArray(), 0,
+                text.length(), Font.LAYOUT_LEFT_TO_RIGHT);
+        g2d.drawGlyphVector(gv, 5, 10);
+        return bufferedImage;
     }
 
     private static boolean imagesAreEqual(BufferedImage i1, BufferedImage i2) {
-        System.out.println("Comparing screen shots");
         if (i1.getWidth() != i2.getWidth() || i1.getHeight() != i2.getHeight()) return false;
         for (int i = 0; i < i1.getWidth(); i++) {
             for (int j = 0; j < i1.getHeight(); j++) {
